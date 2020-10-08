@@ -1,0 +1,26 @@
+connectionBackOffInitial: 5000
+connectionSuccessMinDuration: 60000
+
+bridges: [
+  {
+    name: "Lufthansa Bridge"
+    host: "a35ixnrwyoljwq.iot.eu-central-1.amazonaws.com"
+    port: 8883
+    cleanSession: true
+    localClientId: "client1"
+    remoteClientId: "remoteClient1"
+    topics: [
+      {
+        pattern: "prd/FlightUpdate/#"
+        localPrefix: "lufthansa/"
+        direction: "IN"
+      }
+    ],
+    ssl: {
+      enabled: true,
+      keyPath: "/etc/ssl_cert/private.pem.key",
+      certPath: "/etc/ssl_cert/cert.cer",
+      additionalCaCertsPath: "/etc/ssl_cert/VeriSign-Class3-Public-Primary-Certification-Authority-G5.pem"
+    }
+  }
+]

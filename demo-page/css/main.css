@@ -1,0 +1,46 @@
+html,
+body,
+#map {
+	height: 100%;
+	font-family: 'Muli', sans-serif;
+	font-size: 16px;
+	font-weight: 400;
+}
+
+body {
+    padding-top: 20px;
+    padding-bottom: 70px;
+}
+
+.iframe-container {
+	position: relative;
+	overflow: hidden;
+	width: 100%;
+	height: 1520px;
+	padding-top: 50%;
+}
+
+h3 {
+    padding-top: 5px;
+}
+
+div#diagram {
+     padding-top: 15px;
+     padding-bottom: 15px;
+}
+
+div#ending {
+    padding-top: 15px;
+    padding-bottom: 35px;
+}
+
+.responsive-iframe {
+	position: absolute;
+	top: 0;
+	left: 0;
+	bottom: 0;
+	right: 0;
+	width: 100%;
+	border: none;
+}
+

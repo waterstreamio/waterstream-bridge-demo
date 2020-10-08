@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+          integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.2.0/styles/idea.min.css" integrity="sha512-jxbAYisMjIOokHq0YnYxWqTUfJRe8s1U2F1lp+se3vv0CS8floaFL3Mc3GEpG3HCG2s6lxHb3QvQdmUOT1ZzKw==" crossorigin="anonymous" />
+    <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Muli"/>
+    <link rel="stylesheet" href="css/main.css"/>
+    <link rel="icon" type="image/png" href="img/favicon.png">
+    <title>Waterstream MQTT bridge</title>
+</head>
+
+<body>
+<div class="container">
+    <h1>Waterstream MQTT bridge mode</h1>
+    <p>Waterstream 1.1.0 introduces the <a href="https://docs.waterstream.io/release/bridge.html">Bridge mode</a> that allows connecting Waterstream to
+        another MQTT broker and exchanging messages between them, appearing as a single distributed broker.
+    </p>
+    <h3>Bridging the Lufthansa notification service</h3>
+    <p>
+        To showcase this new capability, we connected Waterstream to the <a
+            href="https://developer.lufthansa.com/docs/read/api_basics/notification_service" target="_blank">Lufthansa Open API notification service</a>. This public API allows monitoring changes of Lufthansa flights (and others) using the MQTT protocol. Communication flows only from the Lufthansa endpoint toward Waterstream that behaves like a simple MQTT client consuming available MQTT topics.</p>
+    <p>Below there's an example of a message coming from the Lufthansa endpoint.</p>
+    <pre><code class="json">{
+   "Update":{
+      "ScheduledFlightDate":"2020-10-05",
+      "Message":"New Estimated Arrival",
+      "ScheduledFlightTime":"0110",
+      "FlightNumber":"LX967",
+      "Timestamp":"2020-10-05T13:45:03"
+   }
+}</code></pre>
+    <h3>Building dashboards</h3>
+    <p>Waterstream uses Apache Kafka as the persistence layer. Every message ingested from the source MQTT broker by the bridge is written directly into Kafka. It's straightforward to configure a Kafka Connector to import that data into Elasticsearch and build some Kibana dashboards.</p>
+    <div id="diagram">
+        <div class="text-center">
+            <img src="img/bridge.png" class="img-fluid" alt="Bridge architecture">
+        </div>
+    </div>
+    <p>The final result consists of a seamless integration that allows you to get insights of the ingested data. You can select one airline to filter data, or you can apply a different time window to get notifications for a specific day or hour.</p>
+    <div class="iframe-container text-center">
+        <iframe
+                src="https://kibana-bridgedemo.waterstream.io/app/dashboards#/view/26bcbee0-fcb7-11ea-8622-b300d03f1ba2?embed=true&_g=(filters%3A!()%2CrefreshInterval%3A(pause%3A!f%2Cvalue%3A10000)%2Ctime%3A(from%3Anow%2Fd%2Cto%3Anow%2Fd))&show-time-filter=true&hide-filter-bar=true"
+                class="responsive-iframe" height="1500"></iframe>
+    </div>
+    <h3>Source code</h3>
+    <p>The source code of this demo is available on <a href="https://github.com/simplematter/waterstream-bridge-demo" target="_blank">Github</a>
+    </p>
+    <div id="ending">
+        <h3>Do you want to know more?</h3>
+        <p>Visit Waterstream product site at <a href="https://waterstream.io" target="_blank">waterstream.io</a> and learn how to combine MQTT with Kafka, the standard de-facto streaming platform.</p>
+    </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.2.0/highlight.min.js"
+        integrity="sha512-TDKKr+IvoqZnPzc3l35hdjpHD0m+b2EC2SrLEgKDRWpxf2rFCxemkgvJ5kfU48ip+Y+m2XVKyOCD85ybtlZDmw=="
+        crossorigin="anonymous"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+        integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"
+        integrity="sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN"
+        crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"
+        integrity="sha384-B4gt1jrGC7Jh4AgTPSdUtOBvfO8shuf57BaghqFfPlYxofvL8/KUEfYiJOMMV+rV"
+        crossorigin="anonymous"></script>
+</body>
+
+</html>

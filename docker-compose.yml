@@ -1,0 +1,178 @@
+version: '3.3'
+
+networks:
+  waterstream-bridge-demo:
+    external:
+      name: waterstream-bridge-demo
+
+volumes:
+  ws_bridge_demo_es_data:
+    driver: local
+
+services:
+  zookeeper:
+    image: "confluentinc/cp-zookeeper:${CONFLUENT_VERSION}"
+    container_name: ws-bridge-demo-zookeeper
+    networks:
+      - waterstream-bridge-demo
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    restart: unless-stopped
+    volumes:
+      - ./data_volumes/zk:/var/lib/zookeeper/data:rw
+
+  kafka:
+    image: "confluentinc/cp-kafka:${CONFLUENT_VERSION}"
+    container_name: ws-bridge-demo-kafka
+    networks:
+      - waterstream-bridge-demo
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_OPTS: "-javaagent:/var/addons/jmx_prometheus_javaagent-0.13.0.jar=9192:/var/addons/jmx_exporter/kafka-0-8-2.yml"
+    volumes:
+      - ./addons:/var/addons:ro
+      - ./data_volumes/kafka:/var/lib/kafka/data:rw
+    restart: unless-stopped
+
+  kafka-setup:
+    image: "confluentinc/cp-kafka:${CONFLUENT_VERSION}"
+    networks:
+      - waterstream-bridge-demo
+    depends_on:
+      - kafka
+    command: "bash -c 'echo Waiting for Kafka to be ready... && \
+      cub kafka-ready -b kafka:9092 1 60 && \
+      kafka-topics --zookeeper zookeeper:2181 --create --if-not-exists --topic ${SESSION_TOPIC} --partitions 5 --replication-factor 1 --config cleanup.policy=compact --config min.compaction.lag.ms=60000 --config delete.retention.ms=600000 && \
+      kafka-topics --zookeeper zookeeper:2181 --create --if-not-exists --topic ${RETAINED_MESSAGES_TOPIC} --partitions 5 --replication-factor 1 --config cleanup.policy=compact --config min.compaction.lag.ms=60000 --config delete.retention.ms=600000 && \
+      kafka-topics --zookeeper zookeeper:2181 --create --if-not-exists --topic ${CONNECTION_TOPIC} --partitions 5 --replication-factor 1 --config cleanup.policy=delete --config retention.ms=600000 --config delete.retention.ms=3600000 && \
+      kafka-topics --zookeeper zookeeper:2181 --create --if-not-exists --topic ${MESSAGES_DEFAULT_TOPIC} --partitions 5 --replication-factor 1 $DEFAULT_MESSAGES_RETENTION && \
+      kafka-topics --zookeeper zookeeper:2181 --create --if-not-exists --topic ${WATERSTREAM_DEMO_TOPIC1} --partitions 5 --replication-factor 1 $WATERSTREAM_DEMO_MESSAGES_RETENTION && \
+      kafka-topics --zookeeper zookeeper:2181 --create --if-not-exists --topic ${WATERSTREAM_DEMO_TOPIC2} --partitions 5 --replication-factor 1 $WATERSTREAM_DEMO_MESSAGES_RETENTION'"
+    environment:
+      KAFKA_BROKER_ID: ignored
+      KAFKA_ZOOKEEPER_CONNECT: ignored
+    restart: "no"
+
+  waterstream:
+    image: "simplematter/waterstream-kafka-minified:${WATERSTREAM_VERSION}"
+    container_name: waterstream-kafka-bridge-demo
+    networks:
+      - waterstream-bridge-demo
+    depends_on:
+      - kafka-setup
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "PLAINTEXT://kafka:9092"
+      COROUTINES_THREADS: ${COROUTINES_THREADS}
+      KAFKA_TRANSACTIONAL_ID: ""
+      MQTT_PORT: 1883
+      MQTT_WS_PORT: 1893
+      MONITORING_PORT: 1884
+      MONITORING_INCLUDE_JAVA_METRICS: "true"
+      KAFKA_MESSAGES_DEFAULT_TOPIC: ${MESSAGES_DEFAULT_TOPIC}
+      KAFKA_MESSAGES_TOPICS_PATTERNS: ${MESSAGES_TOPICS_PATTERNS}
+      AUTHENTICATION_REQUIRED: "false"
+      AUTHENTICATION_METHOD_PLAIN_USERS_FILE_ENABLED: "true"
+      USERS_FILE_PATH: "/etc/users.properties"
+      AUTHORIZATION_RULES_PATH: "/etc/authorization.csv"
+      LH_BRIDGE_CLIENT_ID: ${LH_BRIDGE_CLIENT_ID}
+      MQTT_BRIDGES_CONFIG_FILE: "/etc/bridge.conf"
+      WATERSTREAM_JAVA_OPTS: "-Djava.security.properties=/etc/symantec.policy"
+    volumes:
+      - ./users.properties:/etc/users.properties:ro
+      - ./authorization.csv:/etc/authorization.csv:ro
+      - ./waterstream.license:/etc/waterstream.license:ro
+      - ./bridge.conf:/etc/bridge.conf:ro
+      - ./ssl_cert:/etc/ssl_cert:ro
+      - ./symantec.policy:/etc/symantec.policy:ro
+    restart: unless-stopped
+
+  elasticsearch7:
+    image: docker.elastic.co/elasticsearch/elasticsearch-oss:7.9.0
+    networks:
+      - waterstream-bridge-demo
+    command: elasticsearch -E "discovery.type=single-node"
+    volumes:
+      - ws_bridge_demo_es_data:/usr/share/elasticsearch/data:rw
+    ports:
+      - "9200:9200"
+
+  kibana7:
+    image: docker.elastic.co/kibana/kibana-oss:7.9.0
+    networks:
+      - waterstream-bridge-demo
+    ports:
+      - "5601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch7:9200
+
+  connect:
+    image: confluentinc/cp-kafka-connect:${CONFLUENT_VERSION}
+    depends_on:
+      - kafka
+    container_name: connect
+    restart: always
+    ports:
+      - "8083:8083"
+    volumes:
+      - ./data:/data
+    networks:
+      - waterstream-bridge-demo
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: kafka:9092
+      CONNECT_REST_PORT: 8083
+      CONNECT_GROUP_ID: "connect"
+      CONNECT_CONFIG_STORAGE_TOPIC: "connect-config"
+      CONNECT_OFFSET_STORAGE_TOPIC: "connect-offsets"
+      CONNECT_STATUS_STORAGE_TOPIC: "connect-status"
+      CONNECT_REPLICATION_FACTOR: 1
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_KEY_CONVERTER: "org.apache.kafka.connect.storage.StringConverter"
+      CONNECT_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_INTERNAL_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_INTERNAL_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_REST_ADVERTISED_HOST_NAME: "connect"
+      CONNECT_PLUGIN_PATH: /usr/share/java
+      CONNECT_LOG4J_ROOT_LOGLEVEL: INFO
+      CONNECT_LOG4J_LOGGERS: org.reflections=ERROR
+
+  connect-setup:
+    image: curlimages/curl:7.69.1
+    networks:
+      - waterstream-bridge-demo
+    depends_on:
+      - connect
+    volumes:
+      - ./connect/createElasticsearchSink.sh:/etc/connect/createElasticsearchSink.sh:ro
+    command: "/bin/sh /etc/connect/createElasticsearchSink.sh"
+    restart: "no"
+
+  kibana-setup:
+    image: curlimages/curl:7.69.1
+    networks:
+      - waterstream-bridge-demo
+    depends_on:
+      - connect-setup
+    volumes:
+      - ./kibana/provideKibanaObjects.sh:/etc/kibana/provideKibanaObjects.sh:ro
+      - ./kibana/export.ndjson:/etc/kibana/export.ndjson:ro
+    command: "/bin/sh /etc/kibana/provideKibanaObjects.sh"
+    restart: "no"
+
+  lighttpd:
+    image: sebp/lighttpd
+    volumes:
+      - ./demo-page:/var/www/localhost/htdocs:ro
+    ports:
+      - "8090:80"
+    tty: true
