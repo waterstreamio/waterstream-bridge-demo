@@ -1,7 +1,7 @@
 Waterstream Bridge Demo
 =======================
 
-This demo is based on [Waterstream Bridge Mode](https://docs.waterstream.io/release/bridge.html) feature and aims to show its capabilities and possible applications.
+This demo is based on [Waterstream Bridge Mode](https://docs.waterstream.io/release/bridge.html) feature and aims to show its capabilities and possible applications. See [bridgedemo.waterstream.io](https://bridgedemo.waterstream.io/), for the live demo.
 
 ## Demo configuration
 
